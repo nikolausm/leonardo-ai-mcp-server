@@ -1,0 +1,23 @@
+{
+  "name": "leonardo-ai-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Leonardo AI API - Free daily credits for AI image generation",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^2.0.0",
+    "node-fetch": "^3.3.2"
+  },
+  "keywords": [
+    "mcp",
+    "leonardo-ai",
+    "ai",
+    "image-generation",
+    "free-credits"
+  ],
+  "author": "Michael Nikolaus",
+  "license": "MIT"
+}
