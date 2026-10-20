@@ -1,5 +1,7 @@
-import { createServer } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/transport.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import path from 'path';
@@ -21,14 +23,16 @@ const MODELS = {
   'realistic-vision-v5': 'b820ea11-02bf-4652-97ae-9ac0cc00593d'
 };
 
-const server = createServer({
+const server = new Server({
   name: 'leonardo-ai-mcp-server',
   description: 'Access Leonardo AI for free AI image generation (150 daily credits)',
   version: '1.0.0'
-});
+}, { capabilities: { tools: {} } });
+
+const tools = [];
 
 // Tool to generate images
-server.addTool({
+tools.push({
   name: 'generate_image',
   description: 'Generate an image using Leonardo AI',
   inputSchema: {
@@ -191,7 +195,7 @@ server.addTool({
 });
 
 // Tool to check user info and credits
-server.addTool({
+tools.push({
   name: 'check_credits',
   description: 'Check your Leonardo AI account and remaining credits',
   inputSchema: {
@@ -238,7 +242,7 @@ server.addTool({
 });
 
 // Tool to list available models
-server.addTool({
+tools.push({
   name: 'list_models',
   description: 'List available Leonardo AI models',
   inputSchema: {
@@ -267,12 +271,32 @@ function getModelDescription(modelKey) {
   return descriptions[modelKey] || 'AI image generation model';
 }
 
+const validator = new AjvJsonSchemaValidator();
+const validators = new Map(tools.map(tool => [tool.name, validator.getValidator(tool.inputSchema)]));
+
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: tools.map(({ handler, ...definition }) => definition)
+}));
+
+server.setRequestHandler(CallToolRequestSchema, async request => {
+  const tool = tools.find(tool => tool.name === request.params.name);
+  if (!tool) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${request.params.name}`);
+  const args = request.params.arguments ?? {};
+  const validation = validators.get(tool.name)(args);
+  if (!validation.valid) throw new McpError(ErrorCode.InvalidParams, validation.errorMessage);
+  const result = await tool.handler(args);
+  return {
+    content: [{ type: 'text', text: JSON.stringify(result) }],
+    ...(result.success === false || result.status === 'error' ? { isError: true } : {})
+  };
+});
+
 // Start the server
 async function start() {
-  console.log('Starting Leonardo AI MCP server...');
+  console.error('Starting Leonardo AI MCP server...');
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('Leonardo AI MCP server running');
+  console.error('Leonardo AI MCP server running');
 }
 
 start().catch(console.error);
