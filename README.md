@@ -21,6 +21,8 @@ An MCP (Model Context Protocol) server that provides access to Leonardo AI's ima
 
 ## Installation
 
+Requires Node.js 20 or newer. Run `npm test` to verify the MCP protocol with mocked API responses.
+
 1. Clone this repository:
 ```bash
 git clone https://github.com/nikolausm/leonardo-ai-mcp-server.git
